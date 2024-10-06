@@ -222,8 +222,8 @@ class CouchDBClient(object):
 
     def _get_config_url(self, section, option=None):
         path_elements = []
-        if self.node:
-            path_elements.append('/_node/{0}'.format(self.node))
+        node = self.node if self.node else '_local'
+        path_elements.append('/_node/{0}'.format(node))
         path_elements.append('/_config/{0}'.format(section))
         if option:
             path_elements.append('/{0}'.format(option))
