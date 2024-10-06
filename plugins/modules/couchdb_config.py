@@ -67,6 +67,11 @@ options:
             - The port to connect to
         required: false
         default: 5984
+    scheme:
+        description:
+            - the scheme used to connect
+        required: false
+        default: http
     node:
         description:
             - The cluster node to apply the changes to. Required for CouchDB 2.0 and later.
@@ -155,6 +160,7 @@ def main():
         argument_spec=dict(
             host=dict(default='localhost'),
             port=dict(type='int', default=5984),
+            scheme=dict(type='str', default="http"),
             user=dict(type='str'),
             password=dict(type='str', no_log=True),
             node=dict(type='str'),
@@ -174,7 +180,7 @@ def main():
     if not IS_INSTALLED_REQUESTS:
         module.fail_json(msg='Please install requests')
 
-    couchdb_uri = create_couchdb_uri(module.params['host'], module.params['port'],
+    couchdb_uri = create_couchdb_uri(module.params['host'], module.params['port'], module.params['scheme'],
                                      user=module.params['user'], password=module.params['password'])
 
     node = module.params['node']
@@ -209,13 +215,13 @@ def main():
     module.exit_json(changed=is_changed, **kwargs)
 
 
-def create_couchdb_uri(host, port, user=None, password=None):
+def create_couchdb_uri(host, port, scheme, user=None, password=None):
     if user is not None:
         auth = '{0}:{1}@'.format(user, password)
     else:
         auth = ''
 
-    return ''.join(['http://', auth, host, ':{0}'.format(port)])
+    return ''.join(['{0}://'.format(scheme), auth, host, ':{0}'.format(port)])
 
 
 def resource_path_to_key(node, section, key):
