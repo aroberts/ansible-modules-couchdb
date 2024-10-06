@@ -176,10 +176,11 @@ class AuthenticationException(Exception):
 
 class CouchDBClient:
 
-    def __init__(self, host="localhost", port="5984", login_user=None, login_password=None, authentication_db="_users", node=None):
+    def __init__(self, host="localhost", port="5984", scheme="http", login_user=None, login_password=None, authentication_db="_users", node=None):
         self._auth = None
         self.host = host
         self.port = port
+        self.scheme = scheme
         self.login_user = login_user
         self.login_password = login_password
         self.authentication_db = authentication_db
@@ -348,7 +349,7 @@ class CouchDBClient:
             raise self._create_exception(r)
 
     def _get_absolute_url(self, path):
-        return "http://{0}:{1}{2}".format(self.host, self.port, path)
+        return "{3}://{0}:{1}{2}".format(self.host, self.port, path, self.scheme)
 
     def _get_user_url(self, username):
         return self._get_absolute_url("/{0}/org.couchdb.user:{1}".format(self.authentication_db, username))
@@ -418,6 +419,7 @@ def main():
         argument_spec=dict(
             host=dict(type='str', default="localhost"),
             port=dict(type='int', default=5984),
+            scheme=dict(type='str', default="http"),
             name=dict(type='str', required=True),
             password=dict(type='str', required=False, no_log=True),
             raw_password=dict(type='bool', choices=BOOLEANS, default='no'),
@@ -436,6 +438,7 @@ def main():
 
     host = module.params['host']
     port = module.params['port']
+    scheme = module.params['scheme']
     node = module.params['node']
     username = module.params['name']
     password = module.params['password']
@@ -458,7 +461,7 @@ def main():
     # So for now I prefer to neglect this feature and wait to see if anyone actually needs it.
     authentication_db = '_users'
 
-    couchdb = CouchDBClient(host, port, login_user, login_password, authentication_db, node)
+    couchdb = CouchDBClient(host, port, scheme, login_user, login_password, authentication_db, node)
     try:
         if state == "absent" and not login_user:
             if admin:
@@ -498,7 +501,8 @@ def main():
         kwargs = {
             "msg": "Failed to connect to CouchDB at {0}:{1}".format(host, port),
             "host": host,
-            "port": port
+            "port": port,
+            "scheme": scheme
         }
         module.fail_json(**kwargs)
     finally:
