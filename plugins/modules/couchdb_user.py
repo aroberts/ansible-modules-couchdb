@@ -43,6 +43,11 @@ options:
             - The port to connect to
         required: false
         default: 5984
+    scheme:
+        description:
+            - the scheme used to connect
+        required: false
+        default: http
     node:
         description:
             - The cluster node to apply the changes to. Required for CouchDB 2.0 and later
