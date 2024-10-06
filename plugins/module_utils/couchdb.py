@@ -40,7 +40,7 @@ class AuthenticationException(Exception):
         self.message = message
 
 
-class CouchDBClient:
+class CouchDBClient(object):
 
     def __init__(self, host="localhost", port="5984", scheme="http", login_user=None, login_password=None, authentication_db="_users", node=None):
         self._auth = None
@@ -278,4 +278,93 @@ class CouchDBClient:
         else:
             response_body = r.text
             return CouchDBException(status_code, reason=response_body)
+
+    # db module methods
+    @staticmethod
+    def update_dict_entry_values(values, target_dict, target_key):
+        original_values = target_dict.get(target_key, [])
+        if isinstance(values, list) and len(values) > 0:
+            target_dict[target_key] = values
+        else:
+            target_dict[target_key] = []
+        changed = original_values != target_dict[target_key]
+        return changed
+
+    def database_exist(self, database):
+        url = self._get_absolute_url("/_all_dbs")
+        r = requests.get(url, auth=self._auth)
+        if r.status_code in [requests.codes.ok, requests.codes.not_modified]:
+            dbs = r.json()
+            return database in dbs
+        else:
+            raise self._create_exception(r)
+
+    def database_present(self, name, admin_names, admin_roles, member_names, member_roles):
+        if not self.database_exist(name):
+            r = requests.put(self._get_absolute_url('/{0}'.format(name)),
+                             auth=self._auth,
+                             headers={"accept": "application/json"})
+            database_created = False
+            if r.status_code == 200:
+                database_created = True
+            elif r.status_code == 201:
+                database_created = True
+            elif r.status_code == 412:
+                database_created = False
+            else:
+                raise self._create_exception(r)
+        else:
+            database_created = False
+
+        document = self.get_document(name, '_security')
+        if document is None:
+            document = {}
+        if document.get('admins') is None:
+            document['admins'] = {}
+        if document.get('members') is None:
+            document['members'] = {}
+
+        admin_names_changed = self.update_dict_entry_values(admin_names, document['admins'], 'names')
+        admin_roles_changed = self.update_dict_entry_values(admin_roles, document['admins'], 'roles')
+        member_names_changed = self.update_dict_entry_values(member_names, document['members'], 'names')
+        member_roles_changed = self.update_dict_entry_values(member_roles, document['members'], 'roles')
+
+        security_document_changed = admin_names_changed or admin_roles_changed or member_names_changed or member_roles_changed
+        security_document_updated = False
+        if security_document_changed:
+            r = requests.put(self._get_absolute_url('/{0}/_security'.format(name)), **{
+                'data': json.dumps(document),
+                'auth': self._auth,
+                'headers': {
+                    'Accept': 'application/json',
+                    'X-Couch-Full-Commit': 'true'
+                }
+            })
+            if r.status_code == requests.codes.ok:
+                security_document_updated = True
+            else:
+                raise self._create_exception(r)
+
+        changed = database_created or security_document_updated
+        context = {
+            'database_created': database_created,
+            'permissions_changed': security_document_updated
+        }
+        return changed, context
+
+    def database_absent(self, name):
+        response = requests.get(self._get_absolute_url('/{0}'.format(name)), auth=self._auth)
+
+        database_deleted = False
+        if response.status_code == 200:
+            delete_request = requests.delete(self._get_absolute_url('/' + name), auth=self._auth)
+            if delete_request.status_code == 200:
+                database_deleted = True
+            else:
+                raise self._create_exception(response)
+
+        context = {
+            'database_deleted': database_deleted
+        }
+        return database_deleted, context
 
