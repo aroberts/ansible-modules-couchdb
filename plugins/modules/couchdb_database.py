@@ -89,7 +89,10 @@ notes:
 author: Daniel Bechler
 '''
 
-from ansible_collections.aroberts.couchdb.plugins.module_utils.couchdb import CouchDBClient, HAS_REQUESTS
+from ansible_collections.aroberts.couchdb.plugins.module_utils.couchdb import CouchDBClient, CouchDBException, HAS_REQUESTS
+try:
+    from requests.exceptions import ConnectionError
+except: pass
 
 def main():
     module = AnsibleModule(
