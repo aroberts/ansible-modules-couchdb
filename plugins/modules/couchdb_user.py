@@ -149,7 +149,8 @@ try:
             self.session_token = session_token
 
         def __call__(self, r):
-            r.headers['Cookies'] = None
+            # delete any existing cookies on the request
+            r.headers.pop('Cookies', None)
             r.prepare_cookies({
                 "AuthSession": self.session_token
             })
